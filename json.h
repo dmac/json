@@ -99,17 +99,44 @@ char *json_error(JSONError err) {
 }
 
 static char *types[] = {
-    "null",   // JSON_NULL,
-    "bool",   // JSON_BOOL,
-    "string", // JSON_STRING,
-    "number", // JSON_NUMBER,
-    "array",  // JSON_ARRAY,
-    "object", // JSON_OBJECT,
+    "NULL",
+    "BOOL",
+    "STRING",
+    "NUMBER",
+    "ARRAY",
+    "OBJECT",
 
-    "array_end",  // JSON_ARRAY_END,
-    "object_end", // JSON_OBJECT_END,
-    "comma",      // JSON_COMMA,
+    "ARRAY_END",
+    "OBJECT_END",
+    "COMMA",
 };
+
+void json_debug_print(JSONValue *v, int level) {
+    int indent = 4;
+    switch (v->type) {
+    case JSON_NULL:
+        printf("%*snull\n", level * indent, " ");
+        break;
+    case JSON_BOOL:
+        printf("%*s%s\n", level * indent, " ", v->v.b ? "true" : "false");
+        break;
+    case JSON_STRING:
+        printf("%*s\"%s\"\n", level * indent, " ", v->v.s);
+        break;
+    case JSON_NUMBER:
+        printf("%*s%g\n", level * indent, " ", v->v.n);
+        break;
+    case JSON_ARRAY:
+        printf("%*s%s[%zu]\n", level * indent, " ", json_type(v->type), v->count);
+        for (size_t i = 0; i < v->count; i++) {
+            json_debug_print(v->v.elements[i], level+1);
+        }
+        break;
+    default:
+        // TODO(dmac) Implement object printing
+        abort();
+    }
+}
 
 char *json_type(JSONType type) {
     return types[type];

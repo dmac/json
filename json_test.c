@@ -290,7 +290,7 @@ void test_json_parse_number(Test *t) {
 
 void test_json_parse_array(Test *t) {
     char        buf[1024];
-    JSONScanner s = json_scanner_new("[1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
+    JSONScanner s = json_scanner_new("[1.1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
     JSONError   err;
     JSONValue * root;
     if ((err = json_parse(&s, &root)) != JSON_OK) {
@@ -300,11 +300,7 @@ void test_json_parse_array(Test *t) {
         test_fail(t, "got %s; want %s", json_type(root->type), JSON_ARRAY);
         return;
     }
-    // printf("%d\n", (int)root->v.elements[0]->v.n);
-    // printf("%d\n", (int)root->v.elements[1]->v.elements[0]->v.n);
-    // printf("%d\n", (int)root->v.elements[2]->v.elements[0]->v.elements[0]->v.n);
-    // printf("%d\n", (int)root->v.elements[2]->v.elements[1]->v.elements[0]->v.n);
-    // printf("%s\n", root->v.elements[3]->v.s);
+    // json_debug_print(root, 0);
 }
 
 int main(void) {
