@@ -269,7 +269,7 @@ JSONError json_scan_string(JSONScanner *s, JSONValue *v) {
         return JSON_OOM;
     }
     memcpy(v->v.s, s->s + 1, v->len - 2);
-    v->v.s[v->len - 1] = '\0';
+    v->v.s[v->len - 2] = '\0';
     s->s += v->len;
     return JSON_OK;
 }
