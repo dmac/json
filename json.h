@@ -52,8 +52,6 @@ typedef struct JSONParser {
     JSONValue *container;
 } JSONParser;
 
-void json_parser_init(JSONParser *p, char *str, void *mem);
-
 char *json_error(JSONError err);
 char *json_type(JSONType type);
 
@@ -85,6 +83,15 @@ char *json_type(JSONType type);
 //         popb new container pointer
 //         continue
 
+JSONParser json_parser_new(char *str, void *mem, size_t memsize) {
+    JSONParser p = {0};
+    p.s          = str;
+    p.mem        = mem;
+    p.memsize    = memsize;
+    p.memb       = memsize;
+    return p;
+}
+
 static char *errors[] = {
     "OK",
     "unexpected end of input",
@@ -109,6 +116,10 @@ static char *types[] = {
     "COMMA",
     "COLON",
 };
+
+char *json_type(JSONType type) {
+    return types[type];
+}
 
 void json_debug_print(JSONValue *v, int level) {
     printf("%*s", 4 * level, " ");
@@ -141,10 +152,6 @@ void json_debug_print(JSONValue *v, int level) {
     }
 }
 
-char *json_type(JSONType type) {
-    return types[type];
-}
-
 size_t json_memavail(JSONParser *p) {
     if (p->memf > p->memsize || p->memb > p->memsize || p->memf > p->memb) {
         return 0;
@@ -171,22 +178,13 @@ JSONError json_pushb(JSONParser *p, JSONValue *v) {
     return JSON_OK;
 }
 
-JSONValue *json_popb(JSONParser *p) {
+static JSONValue *json_popb(JSONParser *p) {
     if (p->memb >= p->memsize) {
         return NULL;
     }
     JSONValue *pv = *(JSONValue **)(p->mem + p->memb);
     p->memb += sizeof(p);
     return pv;
-}
-
-JSONParser json_parser_new(char *str, void *mem, size_t memsize) {
-    JSONParser p = {0};
-    p.s          = str;
-    p.mem        = mem;
-    p.memsize    = memsize;
-    p.memb       = memsize;
-    return p;
 }
 
 void json_scan_whitespace(JSONParser *p) {
