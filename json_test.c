@@ -199,6 +199,16 @@ void test_json_parse_oom(Test *t) {
     }
 }
 
+void test_json_parse_empty(Test *t) {
+    char        buf[1];
+    JSONError   err;
+    JSONValue * root;
+    JSONScanner s = json_scanner_new("", buf, sizeof(buf));
+    if ((err = json_parse(&s, &root)) != JSON_EOF) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_EOF));
+    }
+}
+
 void test_json_parse_null(Test *t) {
     char        buf[1024];
     JSONError   err;
@@ -347,6 +357,7 @@ int main(void) {
     TEST(&t, test_json_scan_string);
     TEST(&t, test_json_scan_number);
     TEST(&t, test_json_parse_oom);
+    TEST(&t, test_json_parse_empty);
     TEST(&t, test_json_parse_null);
     TEST(&t, test_json_parse_bool);
     TEST(&t, test_json_parse_string);

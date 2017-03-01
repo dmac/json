@@ -557,6 +557,10 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
             }
         }
     }
+    if (s->memf == 0) {
+        // no input
+        return JSON_EOF;
+    }
     *root = (JSONValue *)s->mem;
     return JSON_OK;
 }
