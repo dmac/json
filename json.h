@@ -25,18 +25,19 @@ typedef enum JSONType {
     JSON_COMMA,
 } JSONType;
 
-typedef struct JSONValue {
+typedef struct JSONValue JSONValue;
+struct JSONValue {
     JSONType type;
     size_t   count; // number of elements in array or object
     char *   key;   // key for object elements
 
     union {
-        bool               b;
-        char *             s;
-        double             n;
-        struct JSONValue **e; // array or object elements
+        bool        b;
+        char *      s;
+        double      n;
+        JSONValue **e; // elements of array or object
     } v;
-} JSONValue;
+};
 
 typedef struct JSONScanner {
     char * s;
