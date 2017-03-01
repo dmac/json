@@ -43,9 +43,9 @@ int main(int argc, char **argv) {
     char        buf[1000000];
     JSONError   err;
     JSONValue * root;
-    JSONScanner scanner = json_scanner_new(s, buf, sizeof(buf));
-    if ((err = json_parse(&scanner, &root)) != JSON_OK) {
-        fprintf(stderr, "%s: %s", json_error(err), scanner.s);
+    JSONParser parser = json_parser_new(s, buf, sizeof(buf));
+    if ((err = json_parse(&parser, &root)) != JSON_OK) {
+        fprintf(stderr, "%s: %s", json_error(err), parser.s);
     }
     json_debug_print(root, 0);
     return 0;

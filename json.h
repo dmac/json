@@ -41,18 +41,18 @@ struct JSONValue {
     } v;
 };
 
-typedef struct JSONScanner {
-    char * s;
+typedef struct JSONParser {
+    char *s;
+
     char * mem;
     size_t memsize;
-
     size_t memf;
     size_t memb;
 
     JSONValue *container;
-} JSONScanner;
+} JSONParser;
 
-void json_scanner_init(JSONScanner *s, char *str, void *mem);
+void json_parser_init(JSONParser *p, char *str, void *mem);
 
 char *json_error(JSONError err);
 char *json_type(JSONType type);
@@ -145,124 +145,124 @@ char *json_type(JSONType type) {
     return types[type];
 }
 
-size_t json_memavail(JSONScanner *s) {
-    if (s->memf > s->memsize || s->memb > s->memsize || s->memf > s->memb) {
+size_t json_memavail(JSONParser *p) {
+    if (p->memf > p->memsize || p->memb > p->memsize || p->memf > p->memb) {
         return 0;
     }
-    return s->memb - s->memf;
+    return p->memb - p->memf;
 }
 
-void *json_allocf(JSONScanner *s, size_t size) {
-    if (json_memavail(s) < size) {
+void *json_allocf(JSONParser *p, size_t size) {
+    if (json_memavail(p) < size) {
         return NULL;
     }
-    void *p = s->mem + s->memf;
-    s->memf += size;
-    return p;
+    void *m = p->mem + p->memf;
+    p->memf += size;
+    return m;
 }
 
-JSONError json_pushb(JSONScanner *s, JSONValue *v) {
-    if (json_memavail(s) < sizeof(v)) {
+JSONError json_pushb(JSONParser *p, JSONValue *v) {
+    if (json_memavail(p) < sizeof(v)) {
         return JSON_OOM;
     }
-    s->memb -= sizeof(v);
-    JSONValue **p = (JSONValue **)(s->mem + s->memb);
-    *p            = v;
+    p->memb -= sizeof(v);
+    JSONValue **pv = (JSONValue **)(p->mem + p->memb);
+    *pv            = v;
     return JSON_OK;
 }
 
-JSONValue *json_popb(JSONScanner *s) {
-    if (s->memb >= s->memsize) {
+JSONValue *json_popb(JSONParser *p) {
+    if (p->memb >= p->memsize) {
         return NULL;
     }
-    JSONValue *p = *(JSONValue **)(s->mem + s->memb);
-    s->memb += sizeof(p);
+    JSONValue *pv = *(JSONValue **)(p->mem + p->memb);
+    p->memb += sizeof(p);
+    return pv;
+}
+
+JSONParser json_parser_new(char *str, void *mem, size_t memsize) {
+    JSONParser p = {0};
+    p.s          = str;
+    p.mem        = mem;
+    p.memsize    = memsize;
+    p.memb       = memsize;
     return p;
 }
 
-JSONScanner json_scanner_new(char *str, void *mem, size_t memsize) {
-    JSONScanner s = {0};
-    s.s           = str;
-    s.mem         = mem;
-    s.memsize     = memsize;
-    s.memb        = memsize;
-    return s;
-}
-
-void json_scan_whitespace(JSONScanner *s) {
-    while (isspace(*s->s)) {
-        s->s++;
+void json_scan_whitespace(JSONParser *p) {
+    while (isspace(*p->s)) {
+        p->s++;
     }
 }
 
-JSONError json_scan_null(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_null(JSONParser *p, JSONValue *v) {
     char * expect = "null";
     size_t len    = strlen(expect);
     v->type       = JSON_NULL;
     for (size_t i = 0; i < len; i++) {
-        if (s->s[i] == '\0') {
+        if (p->s[i] == '\0') {
             return JSON_EOF;
         }
-        if (s->s[i] != expect[i]) {
+        if (p->s[i] != expect[i]) {
             return JSON_UNEXPECTED;
         }
     }
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_bool(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_bool(JSONParser *p, JSONValue *v) {
     char * expect;
     size_t len = 0;
     v->type    = JSON_BOOL;
-    if (s->s[len] == 't') {
+    if (p->s[len] == 't') {
         expect = "true";
         v->v.b = true;
-    } else if (s->s[len] == 'f') {
+    } else if (p->s[len] == 'f') {
         expect = "false";
         v->v.b = false;
-    } else if (s->s[len] == '\0') {
+    } else if (p->s[len] == '\0') {
         return JSON_EOF;
     } else {
         return JSON_UNEXPECTED;
     }
     for (size_t i = 0; i < strlen(expect); i++) {
-        if (s->s[i] == '\0') {
+        if (p->s[i] == '\0') {
             return JSON_EOF;
         }
-        if (s->s[i] != expect[i]) {
+        if (p->s[i] != expect[i]) {
             return JSON_UNEXPECTED;
         }
         len++;
     }
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_string(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_string(JSONParser *p, JSONValue *v) {
     size_t len = 0;
     v->type    = JSON_STRING;
-    if (*s->s == '\0') {
+    if (*p->s == '\0') {
         return JSON_EOF;
     }
-    if (s->s[len] != '"') {
+    if (p->s[len] != '"') {
         return JSON_UNEXPECTED;
     }
     len++;
-    while (s->s[len] != '"') {
-        if (s->s[len] == '\0') {
+    while (p->s[len] != '"') {
+        if (p->s[len] == '\0') {
             return JSON_EOF;
         }
-        if (s->s[len] != '\\') {
+        if (p->s[len] != '\\') {
             len++;
             continue;
         }
         // scan escape sequence
         len++;
-        if (s->s[len] == '\0') {
+        if (p->s[len] == '\0') {
             return JSON_EOF;
         }
-        switch (s->s[len]) {
+        switch (p->s[len]) {
         case '"':
         case '\\':
         case '/':
@@ -275,51 +275,51 @@ JSONError json_scan_string(JSONScanner *s, JSONValue *v) {
             continue;
         }
         // scan unicode escape sequence
-        if (s->s[len] != 'u') {
+        if (p->s[len] != 'u') {
             return JSON_UNEXPECTED;
         }
         len++;
         for (int i = 0; i < 4; i++) {
-            if (s->s[len] == '\0') {
+            if (p->s[len] == '\0') {
                 return JSON_EOF;
             }
-            if (!isxdigit(s->s[len])) {
+            if (!isxdigit(p->s[len])) {
                 return JSON_UNEXPECTED;
             }
             len++;
         }
     }
     len++;
-    v->v.s = json_allocf(s, len - 1); // +1 for null-terminator, -2 for quotes
+    v->v.s = json_allocf(p, len - 1); // +1 for null-terminator, -2 for quotes
     if (v->v.s == NULL) {
         return JSON_OOM;
     }
-    memcpy(v->v.s, s->s + 1, len - 2);
+    memcpy(v->v.s, p->s + 1, len - 2);
     v->v.s[len - 2] = '\0';
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_number(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_number(JSONParser *p, JSONValue *v) {
     size_t len = 0;
     v->type    = JSON_NUMBER;
 
     // scan sign
-    if (s->s[len] == '\0') {
+    if (p->s[len] == '\0') {
         return JSON_EOF;
     }
-    if (s->s[len] == '-') {
+    if (p->s[len] == '-') {
         len++;
     }
-    if (s->s[len] == '\0') {
+    if (p->s[len] == '\0') {
         return JSON_EOF;
     }
 
     // scan integral
-    if (s->s[len] == '0') {
+    if (p->s[len] == '0') {
         len++;
-    } else if (s->s[len] >= '1' && s->s[len] <= '9') {
-        while (isdigit(s->s[len])) {
+    } else if (p->s[len] >= '1' && p->s[len] <= '9') {
+        while (isdigit(p->s[len])) {
             len++;
         }
     } else {
@@ -327,103 +327,103 @@ JSONError json_scan_number(JSONScanner *s, JSONValue *v) {
     }
 
     // scan decimal
-    if (s->s[len] == '.') {
+    if (p->s[len] == '.') {
         len++;
-        if (s->s[len] == '\0') {
+        if (p->s[len] == '\0') {
             return JSON_EOF;
         }
-        if (!isdigit(s->s[len])) {
+        if (!isdigit(p->s[len])) {
             return JSON_UNEXPECTED;
         }
-        while (isdigit(s->s[len])) {
+        while (isdigit(p->s[len])) {
             len++;
         }
     }
 
     // scan exponent
-    if (s->s[len] == 'e' || s->s[len] == 'E') {
+    if (p->s[len] == 'e' || p->s[len] == 'E') {
         len++;
-        if (s->s[len] == '\0') {
+        if (p->s[len] == '\0') {
             return JSON_EOF;
         }
-        if (s->s[len] == '+' || s->s[len] == '-') {
+        if (p->s[len] == '+' || p->s[len] == '-') {
             len++;
         }
-        if (s->s[len] == '\0') {
+        if (p->s[len] == '\0') {
             return JSON_EOF;
         }
-        if (!isdigit(s->s[len])) {
+        if (!isdigit(p->s[len])) {
             return JSON_UNEXPECTED;
         }
-        while (isdigit(s->s[len])) {
+        while (isdigit(p->s[len])) {
             len++;
         }
     }
 
     char *end;
-    v->v.n = strtod(s->s, &end);
-    if (s->s + len != end) {
+    v->v.n = strtod(p->s, &end);
+    if (p->s + len != end) {
         return JSON_UNEXPECTED;
     }
 
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_array_start(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_array_start(JSONParser *p, JSONValue *v) {
     size_t len = 0;
     v->type    = JSON_ARRAY;
     v->count   = 0;
-    if (s->s[len] == '\0') {
+    if (p->s[len] == '\0') {
         return JSON_EOF;
     }
-    if (s->s[len] != '[') {
+    if (p->s[len] != '[') {
         return JSON_UNEXPECTED;
     }
     len++;
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_object_start(JSONScanner *s, JSONValue *v) {
+JSONError json_scan_object_start(JSONParser *p, JSONValue *v) {
     size_t len = 0;
     v->type    = JSON_OBJECT;
     v->count   = 0;
-    if (s->s[len] == '\0') {
+    if (p->s[len] == '\0') {
         return JSON_EOF;
     }
-    if (s->s[len] != '{') {
+    if (p->s[len] != '{') {
         return JSON_UNEXPECTED;
     }
     len++;
-    s->s += len;
+    p->s += len;
     return JSON_OK;
 }
 
-JSONError json_scan_value(JSONScanner *s, JSONType type, JSONValue *v) {
+JSONError json_scan_value(JSONParser *p, JSONType type, JSONValue *v) {
     JSONError err = JSON_OK;
     if (type == JSON_NULL) {
-        err = json_scan_null(s, v);
+        err = json_scan_null(p, v);
     } else if (type == JSON_BOOL) {
-        err = json_scan_bool(s, v);
+        err = json_scan_bool(p, v);
     } else if (type == JSON_NUMBER) {
-        err = json_scan_number(s, v);
+        err = json_scan_number(p, v);
     } else if (type == JSON_STRING) {
-        err = json_scan_string(s, v);
+        err = json_scan_string(p, v);
     } else if (type == JSON_ARRAY) {
-        err = json_scan_array_start(s, v);
+        err = json_scan_array_start(p, v);
     } else if (type == JSON_OBJECT) {
-        err = json_scan_object_start(s, v);
+        err = json_scan_object_start(p, v);
     } else {
         err = JSON_UNEXPECTED;
     }
     return err;
 }
 
-JSONError json_scan_to_next_token(JSONScanner *s, JSONType *t) {
+JSONError json_scan_to_next_token(JSONParser *p, JSONType *t) {
     JSONError err = JSON_OK;
-    json_scan_whitespace(s);
-    char c = *s->s;
+    json_scan_whitespace(p);
+    char c = *p->s;
     if (c == 'n') {
         *t = JSON_NULL;
     } else if (c == 't' || c == 'f') {
@@ -452,30 +452,30 @@ JSONError json_scan_to_next_token(JSONScanner *s, JSONType *t) {
     return err;
 }
 
-JSONError json_finalize_container(JSONScanner *s) {
-    s->container->v.e         = (JSONValue **)(s->mem + s->memf);
-    JSONValue **back_pointers = (JSONValue **)(s->mem + s->memb);
-    for (size_t i = 0; i < s->container->count; i++) {
-        if (s->memf + sizeof(JSONValue *) > s->memb) {
+JSONError json_finalize_container(JSONParser *p) {
+    p->container->v.e         = (JSONValue **)(p->mem + p->memf);
+    JSONValue **back_pointers = (JSONValue **)(p->mem + p->memb);
+    for (size_t i = 0; i < p->container->count; i++) {
+        if (p->memf + sizeof(JSONValue *) > p->memb) {
             return JSON_OOM;
         }
-        if (s->memb + sizeof(JSONValue *) > s->memsize) {
+        if (p->memb + sizeof(JSONValue *) > p->memsize) {
             return JSON_OOM;
         }
-        s->container->v.e[i] = back_pointers[s->container->count - 1 - i];
-        s->memf += sizeof(JSONValue *);
-        s->memb += sizeof(JSONValue *);
+        p->container->v.e[i] = back_pointers[p->container->count - 1 - i];
+        p->memf += sizeof(JSONValue *);
+        p->memb += sizeof(JSONValue *);
     }
-    s->container = json_popb(s);
-    s->s++;
+    p->container = json_popb(p);
+    p->s++;
     return JSON_OK;
 }
 
-JSONError json_parse(JSONScanner *s, JSONValue **root) {
+JSONError json_parse(JSONParser *p, JSONValue **root) {
     JSONError err;
     JSONType  type;
     while (true) {
-        err = json_scan_to_next_token(s, &type);
+        err = json_scan_to_next_token(p, &type);
         if (err == JSON_EOF) {
             break;
         } else if (err != JSON_OK) {
@@ -487,53 +487,53 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
             type == JSON_NUMBER ||
             type == JSON_ARRAY ||
             type == JSON_OBJECT) {
-            JSONValue *v = json_allocf(s, sizeof(*v));
+            JSONValue *v = json_allocf(p, sizeof(*v));
             if (v == NULL) {
                 return JSON_OOM;
             }
             *v = (JSONValue){0};
 
-            if (s->container != NULL && s->container->type == JSON_OBJECT) {
+            if (p->container != NULL && p->container->type == JSON_OBJECT) {
                 // parse string key and colon
                 if (type != JSON_STRING) {
                     return JSON_UNEXPECTED;
                 }
-                if ((err = json_scan_string(s, v)) != JSON_OK) {
+                if ((err = json_scan_string(p, v)) != JSON_OK) {
                     return err;
                 }
                 v->key = v->v.s;
                 v->v.s = NULL;
-                if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
+                if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
                     return err;
                 }
                 if (type != JSON_COLON) {
                     return JSON_UNEXPECTED;
                 }
-                s->s++;
-                if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
+                p->s++;
+                if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
                     return err;
                 }
             }
 
-            if ((err = json_scan_value(s, type, v)) != JSON_OK) {
+            if ((err = json_scan_value(p, type, v)) != JSON_OK) {
                 return err;
             }
-            if (s->container != NULL) {
-                s->container->count++;
-                if ((err = json_pushb(s, v)) != JSON_OK) {
+            if (p->container != NULL) {
+                p->container->count++;
+                if ((err = json_pushb(p, v)) != JSON_OK) {
                     return err;
                 }
             }
             if (v->type == JSON_ARRAY || v->type == JSON_OBJECT) {
-                if ((err = json_pushb(s, s->container)) != JSON_OK) {
+                if ((err = json_pushb(p, p->container)) != JSON_OK) {
                     return err;
                 }
-                s->container = v;
+                p->container = v;
             }
-        } else if (s->container != NULL &&
-                   ((s->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
-                    (s->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
-            if ((err = json_finalize_container(s)) != JSON_OK) {
+        } else if (p->container != NULL &&
+                   ((p->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
+                    (p->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
+            if ((err = json_finalize_container(p)) != JSON_OK) {
                 return err;
             }
         } else {
@@ -541,25 +541,25 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
         }
 
         // skip over comma
-        if (s->container != NULL && s->container->count > 0) {
-            if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
+        if (p->container != NULL && p->container->count > 0) {
+            if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
                 return err;
             }
             if (!(type == JSON_COMMA ||
-                  (s->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
-                  (s->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
+                  (p->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
+                  (p->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
                 return JSON_UNEXPECTED;
             }
             if (type == JSON_COMMA) {
-                s->s++;
+                p->s++;
             }
         }
     }
-    if (s->memf == 0) {
+    if (p->memf == 0) {
         // no input
         return JSON_EOF;
     }
-    *root = (JSONValue *)s->mem;
+    *root = (JSONValue *)p->mem;
     return JSON_OK;
 }
 
