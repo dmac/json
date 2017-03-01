@@ -14,6 +14,7 @@ typedef enum JSONError {
 } JSONError;
 
 typedef enum JSONType {
+    // JSON types
     JSON_NULL,
     JSON_BOOL,
     JSON_STRING,
@@ -21,6 +22,7 @@ typedef enum JSONType {
     JSON_ARRAY,
     JSON_OBJECT,
 
+    // other tokens
     JSON_ARRAY_END,
     JSON_OBJECT_END,
     JSON_COMMA,
@@ -57,16 +59,16 @@ char *json_type(JSONType type);
 
 #ifdef JSON_IMPLEMENTATION
 
-// Pseudocode for scanning:
+// Pseudocode for parsing:
 //
-// pushf: set JSONValue memory at front
+// allocf: reserve memory at front
 // pushb: set JSONValue * memory at back
 // popb: deallocate and return JSONValue * memory at back
 // (memory at front is never deallocated since we save pointers to it)
 //
 // loop:
 //     at value (object, array, string, number, bool, null):
-//         pushf value v
+//         allocf value v
 //         if in container c:
 //             increment c count
 //             pushb value pointer &v
@@ -84,11 +86,12 @@ char *json_type(JSONType type);
 //         continue
 
 JSONParser json_parser_new(char *str, void *mem, size_t memsize) {
-    JSONParser p = {0};
-    p.s          = str;
-    p.mem        = mem;
-    p.memsize    = memsize;
-    p.memb       = memsize;
+    JSONParser p = {
+        .s       = str,
+        .mem     = mem,
+        .memsize = memsize,
+        .memb    = memsize,
+    };
     return p;
 }
 
@@ -173,8 +176,7 @@ JSONError json_pushb(JSONParser *p, JSONValue *v) {
         return JSON_OOM;
     }
     p->memb -= sizeof(v);
-    JSONValue **pv = (JSONValue **)(p->mem + p->memb);
-    *pv            = v;
+    *(JSONValue **)(p->mem + p->memb) = v;
     return JSON_OK;
 }
 
@@ -182,9 +184,9 @@ static JSONValue *json_popb(JSONParser *p) {
     if (p->memb >= p->memsize) {
         return NULL;
     }
-    JSONValue *pv = *(JSONValue **)(p->mem + p->memb);
+    JSONValue *v = *(JSONValue **)(p->mem + p->memb);
     p->memb += sizeof(p);
-    return pv;
+    return v;
 }
 
 void json_scan_whitespace(JSONParser *p) {
@@ -195,15 +197,16 @@ void json_scan_whitespace(JSONParser *p) {
 
 JSONError json_scan_null(JSONParser *p, JSONValue *v) {
     char * expect = "null";
-    size_t len    = strlen(expect);
+    size_t len    = 0;
     v->type       = JSON_NULL;
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < strlen(expect); i++) {
         if (p->s[i] == '\0') {
             return JSON_EOF;
         }
         if (p->s[i] != expect[i]) {
             return JSON_UNEXPECTED;
         }
+        len++;
     }
     p->s += len;
     return JSON_OK;
@@ -246,7 +249,7 @@ JSONError json_scan_string(JSONParser *p, JSONValue *v) {
     if (p->s[len] != '"') {
         return JSON_UNEXPECTED;
     }
-    len++;
+    len++; // open quote
     while (p->s[len] != '"') {
         if (p->s[len] == '\0') {
             return JSON_EOF;
@@ -255,6 +258,7 @@ JSONError json_scan_string(JSONParser *p, JSONValue *v) {
             len++;
             continue;
         }
+
         // scan escape sequence
         len++;
         if (p->s[len] == '\0') {
@@ -272,6 +276,7 @@ JSONError json_scan_string(JSONParser *p, JSONValue *v) {
             len++;
             continue;
         }
+
         // scan unicode escape sequence
         if (p->s[len] != 'u') {
             return JSON_UNEXPECTED;
@@ -287,7 +292,7 @@ JSONError json_scan_string(JSONParser *p, JSONValue *v) {
             len++;
         }
     }
-    len++;
+    len++;                            // close quote
     v->v.s = json_allocf(p, len - 1); // +1 for null-terminator, -2 for quotes
     if (v->v.s == NULL) {
         return JSON_OOM;
@@ -303,13 +308,9 @@ JSONError json_scan_number(JSONParser *p, JSONValue *v) {
     v->type    = JSON_NUMBER;
 
     // scan sign
-    if (p->s[len] == '\0') {
-        return JSON_EOF;
-    }
     if (p->s[len] == '-') {
         len++;
-    }
-    if (p->s[len] == '\0') {
+    } else if (p->s[len] == '\0') {
         return JSON_EOF;
     }
 
@@ -320,6 +321,8 @@ JSONError json_scan_number(JSONParser *p, JSONValue *v) {
         while (isdigit(p->s[len])) {
             len++;
         }
+    } else if (p->s[len] == '\0') {
+        return JSON_EOF;
     } else {
         return JSON_UNEXPECTED;
     }
@@ -491,8 +494,8 @@ JSONError json_parse(JSONParser *p, JSONValue **root) {
             }
             *v = (JSONValue){0};
 
+            // if in an object, first parse the string key and colon
             if (p->container != NULL && p->container->type == JSON_OBJECT) {
-                // parse string key and colon
                 if (type != JSON_STRING) {
                     return JSON_UNEXPECTED;
                 }
@@ -538,7 +541,7 @@ JSONError json_parse(JSONParser *p, JSONValue **root) {
             return JSON_UNEXPECTED;
         }
 
-        // skip over comma
+        // if in a container, skip over comma
         if (p->container != NULL && p->container->count > 0) {
             if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
                 return err;
