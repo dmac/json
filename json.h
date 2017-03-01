@@ -517,9 +517,6 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
             if ((err = json_scan_value(s, type, v)) != JSON_OK) {
                 return err;
             }
-            if (*root == NULL) {
-                *root = v;
-            }
             if (s->container != NULL) {
                 s->container->count++;
                 if ((err = json_pushb(s, v)) != JSON_OK) {
