@@ -111,29 +111,33 @@ static char *types[] = {
 };
 
 void json_debug_print(JSONValue *v, int level) {
-    int indent = 4;
+    printf("%*s", 4 * level, " ");
+    if (v->key != NULL) {
+        printf("\"%s\": ", v->key);
+    }
     switch (v->type) {
     case JSON_NULL:
-        printf("%*snull\n", level * indent, " ");
+        printf("null\n");
         break;
     case JSON_BOOL:
-        printf("%*s%s\n", level * indent, " ", v->v.b ? "true" : "false");
+        printf("%s\n", v->v.b ? "true" : "false");
         break;
     case JSON_STRING:
-        printf("%*s\"%s\"\n", level * indent, " ", v->v.s);
+        printf("\"%s\"\n", v->v.s);
         break;
     case JSON_NUMBER:
-        printf("%*s%g\n", level * indent, " ", v->v.n);
+        printf("%g\n", v->v.n);
         break;
     case JSON_ARRAY:
-        printf("%*s%s[%zu]\n", level * indent, " ", json_type(v->type), v->count);
+    case JSON_OBJECT:
+        printf("%s[%zu]\n", json_type(v->type), v->count);
         for (size_t i = 0; i < v->count; i++) {
             json_debug_print(v->v.e[i], level + 1);
         }
         break;
     default:
-        // TODO(dmac) Implement object printing
-        abort();
+        printf("unknown type: %s\n", json_type(v->type));
+        break;
     }
 }
 
@@ -383,6 +387,7 @@ JSONError json_scan_array_start(JSONScanner *s, JSONValue *v) {
 
 JSONError json_scan_value(JSONScanner *s, JSONType type, JSONValue *v) {
     JSONError err = JSON_OK;
+    *v            = (JSONValue){0};
     if (type == JSON_NULL) {
         err = json_scan_null(s, v);
     } else if (type == JSON_BOOL) {
