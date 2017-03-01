@@ -432,27 +432,19 @@ JSONError json_scan_to_next_token(JSONScanner *s, JSONType *t) {
 }
 
 JSONError json_finalize_container(JSONScanner *s) {
-    size_t size = sizeof(JSONValue *) * s->container->count;
-    if (size / sizeof(JSONValue *) != s->container->count) {
-        // size_t overflow
-        // TODO(dmac) Consider using something faster than division.
-        return JSON_OOM;
-    }
-    if (size > json_memavail(s)) {
-        return JSON_OOM;
-    }
-    if (size > s->memsize - s->memb) {
-        // TODO(dmac) This isn't really OOM, it represents a programmer error
-        // since we're trying to pop more off the back than exists.
-        return JSON_OOM;
-    }
     s->container->v.e         = (JSONValue **)(s->mem + s->memf);
     JSONValue **back_pointers = (JSONValue **)(s->mem + s->memb);
     for (size_t i = 0; i < s->container->count; i++) {
+        if (s->memf + sizeof(JSONValue *) > s->memb) {
+            return JSON_OOM;
+        }
+        if (s->memb + sizeof(JSONValue *) > s->memsize) {
+            return JSON_OOM;
+        }
         s->container->v.e[i] = back_pointers[s->container->count - 1 - i];
+        s->memf += sizeof(JSONValue *);
+        s->memb += sizeof(JSONValue *);
     }
-    s->memf += size;
-    s->memb += size;
     s->container = json_popb(s);
     s->s++;
     return JSON_OK;
