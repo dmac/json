@@ -215,7 +215,7 @@ void test_json_parse_null(Test *t) {
     JSONValue * root;
     JSONScanner s = json_scanner_new("null", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
-        test_fail(t, "%s", json_error(err));
+        test_fail(t, "%s: %s", json_error(err), s.s);
         return;
     }
     if (root->type != JSON_NULL) {
@@ -231,7 +231,7 @@ void test_json_parse_bool(Test *t) {
 
     JSONScanner s = json_scanner_new("false", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
-        test_fail(t, "%s", json_error(err));
+        test_fail(t, "%s: %s", json_error(err), s.s);
         return;
     }
     if (root->type != JSON_BOOL) {
@@ -264,7 +264,7 @@ void test_json_parse_string(Test *t) {
     JSONValue * root;
     JSONScanner s = json_scanner_new("\"as\tdf\"", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
-        test_fail(t, "%s", json_error(err));
+        test_fail(t, "%s: %s", json_error(err), s.s);
         return;
     }
     if (root->type != JSON_STRING) {
@@ -284,7 +284,7 @@ void test_json_parse_number(Test *t) {
     JSONValue * root;
     JSONScanner s = json_scanner_new("-12.34e-5", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
-        test_fail(t, "%s", json_error(err));
+        test_fail(t, "%s: %s", json_error(err), s.s);
         return;
     }
     if (root->type != JSON_NUMBER) {
