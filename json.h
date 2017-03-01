@@ -52,10 +52,6 @@ typedef struct JSONScanner {
 
 void json_scanner_init(JSONScanner *s, char *str, void *mem);
 
-void *json_allocf(JSONScanner *s, size_t size);
-JSONError json_pushb(JSONScanner *s, JSONValue *v);
-JSONValue *json_popb(JSONScanner *s);
-
 char *json_error(JSONError err);
 char *json_type(JSONType type);
 
