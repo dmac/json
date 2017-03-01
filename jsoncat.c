@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
     JSONParser parser = json_parser_new(s, buf, sizeof(buf));
     if ((err = json_parse(&parser, &root)) != JSON_OK) {
         fprintf(stderr, "%s: %s", json_error(err), parser.s);
+        return 1;
     }
     json_debug_print(root, 0);
     return 0;
