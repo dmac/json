@@ -290,9 +290,15 @@ void test_json_parse_number(Test *t) {
 
 void test_json_parse_array(Test *t) {
     char        buf[1024];
-    JSONScanner s = json_scanner_new("[1.1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
     JSONError   err;
     JSONValue * root;
+    JSONScanner s = json_scanner_new("[1, 2", buf, sizeof(buf));
+    if ((err = json_parse(&s, &root)) != JSON_EOF) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_EOF));
+        return;
+    }
+
+    s = json_scanner_new("[1.1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
         test_fail(t, "%s: %s", json_error(err), s.s);
     }

@@ -456,9 +456,6 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
     while (true) {
         err = json_scan_to_next_token(s, &type);
         if (err == JSON_EOF) {
-            // TODO(dmac) This isn't exactly right.
-            // Ensure we've parsed exactly one top-level value
-            // and that we're not in a container.
             break;
         } else if (err != JSON_OK) {
             return err;
