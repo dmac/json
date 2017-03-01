@@ -1,18 +1,21 @@
-.DEFAULT_GOAL := json_test
+.DEFAULT_GOAL := all
 
-.PHONY: run test clean
+.PHONY: all test run clean
 
-json_test: json_test.c json.h
-	@$(CC) -o $@ $< -std=c99 -g -Wall -Werror -pedantic
+all: json_test jsoncat
 
 test: json_test
 	@./$<
-	@rm -fr $< $<.dSYM
+	@make clean
 
 run: test
 
 clean:
-	rm -fr json_test json_test.dSYM
+	@rm -fr jsoncat json_test *.dSYM
 
-jsoncat: jsoncat.c
+json_test: json_test.c json.h
 	$(CC) -o $@ $< -std=c99 -O2 -Wall -Werror -pedantic
+
+jsoncat: jsoncat.c json.h
+	$(CC) -o $@ $< -std=c99 -O2 -Wall -Werror -pedantic
+
