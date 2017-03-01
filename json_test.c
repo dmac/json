@@ -308,6 +308,18 @@ void test_json_parse_array(Test *t) {
         return;
     }
 
+    p = json_parser_new("[1,]", buf, sizeof(buf));
+    if ((err = json_parse(&p, &root)) != JSON_UNEXPECTED) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_UNEXPECTED));
+        return;
+    }
+
+    p = json_parser_new("[1}", buf, sizeof(buf));
+    if ((err = json_parse(&p, &root)) != JSON_UNEXPECTED) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_UNEXPECTED));
+        return;
+    }
+
     p = json_parser_new("[1.1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
     if ((err = json_parse(&p, &root)) != JSON_OK) {
         test_fail(t, "%s: %s", json_error(err), p.s);
@@ -333,6 +345,18 @@ void test_json_parse_object(Test *t) {
     p = json_parser_new("{\"a\":", buf, sizeof(buf));
     if ((err = json_parse(&p, &root)) != JSON_EOF) {
         test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_EOF));
+        return;
+    }
+
+    p = json_parser_new("{\"a\": 1,}", buf, sizeof(buf));
+    if ((err = json_parse(&p, &root)) != JSON_UNEXPECTED) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_UNEXPECTED));
+        return;
+    }
+
+    p = json_parser_new("{\"a\": 1]", buf, sizeof(buf));
+    if ((err = json_parse(&p, &root)) != JSON_UNEXPECTED) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_UNEXPECTED));
         return;
     }
 

@@ -472,6 +472,15 @@ JSONError json_finalize_container(JSONParser *p) {
     return JSON_OK;
 }
 
+bool json_is_value(JSONType type) {
+    return type == JSON_NULL ||
+           type == JSON_BOOL ||
+           type == JSON_STRING ||
+           type == JSON_NUMBER ||
+           type == JSON_ARRAY ||
+           type == JSON_OBJECT;
+}
+
 JSONError json_parse(JSONParser *p, JSONValue **root) {
     JSONError err;
     JSONType  type;
@@ -482,12 +491,7 @@ JSONError json_parse(JSONParser *p, JSONValue **root) {
         } else if (err != JSON_OK) {
             return err;
         }
-        if (type == JSON_NULL ||
-            type == JSON_BOOL ||
-            type == JSON_STRING ||
-            type == JSON_NUMBER ||
-            type == JSON_ARRAY ||
-            type == JSON_OBJECT) {
+        if (json_is_value(type)) {
             JSONValue *v = json_allocf(p, sizeof(*v));
             if (v == NULL) {
                 return JSON_OOM;
@@ -546,13 +550,14 @@ JSONError json_parse(JSONParser *p, JSONValue **root) {
             if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
                 return err;
             }
-            if (!(type == JSON_COMMA ||
-                  (p->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
-                  (p->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
-                return JSON_UNEXPECTED;
-            }
             if (type == JSON_COMMA) {
                 p->s++;
+                if ((err = json_scan_to_next_token(p, &type)) != JSON_OK) {
+                    return err;
+                }
+                if (!json_is_value(type)) {
+                    return JSON_UNEXPECTED;
+                }
             }
         }
     }
