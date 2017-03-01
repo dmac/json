@@ -301,9 +301,38 @@ void test_json_parse_array(Test *t) {
     s = json_scanner_new("[1.1, [2], [[3], [4]], \"5\"]", buf, sizeof(buf));
     if ((err = json_parse(&s, &root)) != JSON_OK) {
         test_fail(t, "%s: %s", json_error(err), s.s);
+        return;
     }
     if (root->type != JSON_ARRAY) {
         test_fail(t, "got %s; want %s", json_type(root->type), JSON_ARRAY);
+        return;
+    }
+    // json_debug_print(root, 0);
+}
+
+void test_json_parse_object(Test *t) {
+    char        buf[1024];
+    JSONError   err;
+    JSONValue * root;
+    JSONScanner s = json_scanner_new("{1: 2}", buf, sizeof(buf));
+    if ((err = json_parse(&s, &root)) != JSON_UNEXPECTED) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_UNEXPECTED));
+        return;
+    }
+
+    s = json_scanner_new("{\"a\":", buf, sizeof(buf));
+    if ((err = json_parse(&s, &root)) != JSON_EOF) {
+        test_fail(t, "got %s; want %s", json_error(err), json_error(JSON_EOF));
+        return;
+    }
+
+    s = json_scanner_new("{\"a\": 1, \"b\": [2, 3], \"c\" : {\"d\": \"e\"}}", buf, sizeof(buf));
+    if ((err = json_parse(&s, &root)) != JSON_OK) {
+        test_fail(t, "%s: %s", json_error(err), s.s);
+        return;
+    }
+    if (root->type != JSON_OBJECT) {
+        test_fail(t, "got %s; want %s", json_type(root->type), JSON_OBJECT);
         return;
     }
     // json_debug_print(root, 0);
@@ -323,6 +352,7 @@ int main(void) {
     TEST(&t, test_json_parse_string);
     TEST(&t, test_json_parse_number);
     TEST(&t, test_json_parse_array);
+    TEST(&t, test_json_parse_object);
 
     if (!test_summary(&t)) {
         return 1;

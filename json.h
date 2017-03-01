@@ -23,6 +23,7 @@ typedef enum JSONType {
     JSON_ARRAY_END,
     JSON_OBJECT_END,
     JSON_COMMA,
+    JSON_COLON,
 } JSONType;
 
 typedef struct JSONValue JSONValue;
@@ -105,6 +106,7 @@ static char *types[] = {
     "ARRAY_END",
     "OBJECT_END",
     "COMMA",
+    "COLON",
 };
 
 void json_debug_print(JSONValue *v, int level) {
@@ -382,9 +384,23 @@ JSONError json_scan_array_start(JSONScanner *s, JSONValue *v) {
     return JSON_OK;
 }
 
+JSONError json_scan_object_start(JSONScanner *s, JSONValue *v) {
+    size_t len = 0;
+    v->type    = JSON_OBJECT;
+    v->count   = 0;
+    if (s->s[len] == '\0') {
+        return JSON_EOF;
+    }
+    if (s->s[len] != '{') {
+        return JSON_UNEXPECTED;
+    }
+    len++;
+    s->s += len;
+    return JSON_OK;
+}
+
 JSONError json_scan_value(JSONScanner *s, JSONType type, JSONValue *v) {
     JSONError err = JSON_OK;
-    *v            = (JSONValue){0};
     if (type == JSON_NULL) {
         err = json_scan_null(s, v);
     } else if (type == JSON_BOOL) {
@@ -396,7 +412,7 @@ JSONError json_scan_value(JSONScanner *s, JSONType type, JSONValue *v) {
     } else if (type == JSON_ARRAY) {
         err = json_scan_array_start(s, v);
     } else if (type == JSON_OBJECT) {
-        abort(); // TODO
+        err = json_scan_object_start(s, v);
     } else {
         err = JSON_UNEXPECTED;
     }
@@ -425,6 +441,8 @@ JSONError json_scan_to_next_token(JSONScanner *s, JSONType *t) {
         *t = JSON_OBJECT_END;
     } else if (c == ',') {
         *t = JSON_COMMA;
+    } else if (c == ':') {
+        *t = JSON_COLON;
     } else if (c == '\0') {
         err = JSON_EOF;
     } else {
@@ -472,6 +490,30 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
             if (v == NULL) {
                 return JSON_OOM;
             }
+            *v = (JSONValue){0};
+
+            if (s->container != NULL && s->container->type == JSON_OBJECT) {
+                // parse string key and colon
+                if (type != JSON_STRING) {
+                    return JSON_UNEXPECTED;
+                }
+                if ((err = json_scan_string(s, v)) != JSON_OK) {
+                    return err;
+                }
+                v->key = v->v.s;
+                v->v.s = NULL;
+                if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
+                    return err;
+                }
+                if (type != JSON_COLON) {
+                    return JSON_UNEXPECTED;
+                }
+                s->s++;
+                if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
+                    return err;
+                }
+            }
+
             if ((err = json_scan_value(s, type, v)) != JSON_OK) {
                 return err;
             }
@@ -490,7 +532,9 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
                 }
                 s->container = v;
             }
-        } else if (type == JSON_ARRAY_END || type == JSON_OBJECT_END) {
+        } else if (s->container != NULL &&
+                   ((s->container->type == JSON_ARRAY && type == JSON_ARRAY_END) ||
+                    (s->container->type == JSON_OBJECT && type == JSON_OBJECT_END))) {
             if ((err = json_finalize_container(s)) != JSON_OK) {
                 return err;
             }
