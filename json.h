@@ -538,9 +538,9 @@ JSONError json_parse(JSONScanner *s, JSONValue **root) {
         } else {
             return JSON_UNEXPECTED;
         }
-        if (s->container != NULL &&
-            (type == JSON_NULL || type == JSON_BOOL || type == JSON_STRING ||
-             type == JSON_NUMBER || type == JSON_ARRAY_END || type == JSON_OBJECT_END)) {
+
+        // skip over comma
+        if (s->container != NULL && s->container->count > 0) {
             if ((err = json_scan_to_next_token(s, &type)) != JSON_OK) {
                 return err;
             }
